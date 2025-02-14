@@ -1,57 +1,7 @@
+# app.py
+
 import streamlit as st
-import pyodbc
-import pandas as pd
-import configparser
-import contextlib
-import os
-
-#
-# 1) Context manager para conexão ao banco via config.ini
-#
-
-
-@contextlib.contextmanager
-def db_connection():
-    # Lê config.ini
-    config = configparser.ConfigParser()
-    config.read("config/config.ini")  # Ajuste caminho se necessário
-
-    driver = config["DATABASE"]["DRIVER"]
-    server = config["DATABASE"]["SERVER"]
-    database = config["DATABASE"]["DATABASE"]
-    user = config["DATABASE"]["USER"]
-    password = config["DATABASE"]["PASSWORD"]
-
-    # Monta a connection string para pyodbc
-    conn_str = (
-        f"Driver={{{driver}}};"
-        f"Server={server};"
-        f"Database={database};"
-        f"UID={user};"
-        f"PWD={password};"
-    )
-
-    # Cria a conexão
-    conn = pyodbc.connect(conn_str)
-    try:
-        yield conn
-    finally:
-        conn.close()  # Fecha quando sai do bloco "with"
-
-#
-# 2) Função para executar consulta SQL e retornar DataFrame
-#
-
-
-def consultar_top_1000_folha():
-    with db_connection() as conn:
-        query = "SELECT TOP 1000 * FROM tb_ceres_folha_str"
-        df = pd.read_sql(query, conn)
-    return df
-
-#
-# 3) Aplicação Streamlit
-#
+from database_utils import run_select
 
 
 def main():
@@ -59,7 +9,10 @@ def main():
 
     if st.button("Carregar Dados"):
         try:
-            df_folha = consultar_top_1000_folha()
+            # Definimos a query para buscar os primeiros 1000 registros
+            query = "SELECT TOP 1000 * FROM tb_ceres_folha_str"
+            df_folha = run_select(query)
+
             st.write(f"Retornados {len(df_folha)} registros.")
             st.dataframe(df_folha)
         except Exception as e:

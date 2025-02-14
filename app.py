@@ -1,68 +1,47 @@
 import streamlit as st
-import pyodbc
-import pandas as pd
-import configparser
-import contextlib
-import os
-
-#
-# 1) Context Manager para conexão ao banco
-#    Lê as credenciais de config.ini
-#
-
-
-@contextlib.contextmanager
-def db_connection():
-    config = configparser.ConfigParser()
-    config.read("config/config.ini")  # Ajuste o caminho conforme sua estrutura
-
-    driver = config["DATABASE"]["DRIVER"]
-    server = config["DATABASE"]["SERVER"]
-    database = config["DATABASE"]["DATABASE"]
-    user = config["DATABASE"]["USER"]
-    password = config["DATABASE"]["PASSWORD"]
-
-    conn_str = (
-        f"Driver={{{driver}}};"
-        f"Server={server};"
-        f"Database={database};"
-        f"UID={user};"
-        f"PWD={password};"
-    )
-
-    # Abre conexão
-    conn = pyodbc.connect(conn_str)
-    try:
-        yield conn  # Entrega a conexão para uso no 'with'
-    finally:
-        conn.close()  # Fecha a conexão após sair do bloco
-
-#
-# 2) Função utilitária para executar queries
-#    usando o contexto db_connection()
-#
-
-
-def executar_consulta(sql_query):
-    with db_connection() as conn:
-        df = pd.read_sql(sql_query, conn)
-        return df
-
-#
-# 3) Aplicação Streamlit
-#
 
 
 def main():
-    st.title("Exemplo Profissional: Conexão com context manager + config.ini")
+    # Configuração da página principal
+    st.set_page_config(page_title="Sistema de Laudos Agrícolas", layout="wide")
 
-    if st.button("Consultar Tabela"):
-        try:
-            # Exemplo de query
-            df = executar_consulta("SELECT TOP 5 * FROM dbo.SuaTabela")
-            st.dataframe(df)
-        except Exception as e:
-            st.error(f"Erro ao executar consulta: {e}")
+    # Cabeçalho fixo no topo
+    st.markdown("""
+        <style>
+            .header {
+                background-color: #007A33;
+                padding: 15px;
+                border-radius: 10px;
+                text-align: center;
+                color: white;
+                font-size: 24px;
+                font-weight: bold;
+            }
+        </style>
+        <div class='header'>🌱 Sistema de Laudos Agrícolas</div>
+    """, unsafe_allow_html=True)
+
+    # Introdução
+    st.markdown("## 📊 Bem-vindo ao Sistema de Laudos Agrícolas")
+    st.write(
+        "Este sistema permite acessar e analisar laudos de **solo, fertilizantes, folhas, água, calcário e composto orgânico** "
+        "de três unidades: **Ceres, Patrocínio e Croplab**."
+    )
+
+    # Botão de navegação para a página de laudos
+    st.markdown("### 🔍 Acesse seus Laudos")
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.page_link("pages/app_exames.py", label="📂 Acessar Laudos", icon="📑")
+
+    # Rodapé
+    st.markdown("---")
+    st.markdown(
+        "<div style='text-align: center; color: gray;'>"
+        "© 2024 - Sistema de Laudos Agrícolas | Desenvolvido com ❤️ e Streamlit"
+        "</div>", unsafe_allow_html=True
+    )
 
 
 if __name__ == "__main__":
