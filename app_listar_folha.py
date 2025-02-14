@@ -6,15 +6,15 @@ import contextlib
 import os
 
 #
-# 1) Context Manager para conexão ao banco
-#    Lê as credenciais de config.ini
+# 1) Context manager para conexão ao banco via config.ini
 #
 
 
 @contextlib.contextmanager
 def db_connection():
+    # Lê config.ini
     config = configparser.ConfigParser()
-    config.read("config/config.ini")  # Ajuste o caminho conforme sua estrutura
+    config.read("config/config.ini")  # Ajuste caminho se necessário
 
     driver = config["DATABASE"]["DRIVER"]
     server = config["DATABASE"]["SERVER"]
@@ -22,6 +22,7 @@ def db_connection():
     user = config["DATABASE"]["USER"]
     password = config["DATABASE"]["PASSWORD"]
 
+    # Monta a connection string para pyodbc
     conn_str = (
         f"Driver={{{driver}}};"
         f"Server={server};"
@@ -30,23 +31,23 @@ def db_connection():
         f"PWD={password};"
     )
 
-    # Abre conexão
+    # Cria a conexão
     conn = pyodbc.connect(conn_str)
     try:
-        yield conn  # Entrega a conexão para uso no 'with'
+        yield conn
     finally:
-        conn.close()  # Fecha a conexão após sair do bloco
+        conn.close()  # Fecha quando sai do bloco "with"
 
 #
-# 2) Função utilitária para executar queries
-#    usando o contexto db_connection()
+# 2) Função para executar consulta SQL e retornar DataFrame
 #
 
 
-def executar_consulta(sql_query):
+def consultar_top_1000_folha():
     with db_connection() as conn:
-        df = pd.read_sql(sql_query, conn)
-        return df
+        query = "SELECT TOP 1000 * FROM tb_ceres_folha_str"
+        df = pd.read_sql(query, conn)
+    return df
 
 #
 # 3) Aplicação Streamlit
@@ -54,15 +55,15 @@ def executar_consulta(sql_query):
 
 
 def main():
-    st.title("Exemplo Profissional: Conexão com context manager + config.ini")
+    st.title("Listar TOP 1000 da tabela tb_ceres_folha_str")
 
-    if st.button("Consultar Tabela"):
+    if st.button("Carregar Dados"):
         try:
-            # Exemplo de query
-            df = executar_consulta("SELECT TOP 5 * FROM dbo.SuaTabela")
-            st.dataframe(df)
+            df_folha = consultar_top_1000_folha()
+            st.write(f"Retornados {len(df_folha)} registros.")
+            st.dataframe(df_folha)
         except Exception as e:
-            st.error(f"Erro ao executar consulta: {e}")
+            st.error(f"Ocorreu um erro ao consultar: {e}")
 
 
 if __name__ == "__main__":
