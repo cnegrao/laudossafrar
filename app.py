@@ -28,12 +28,16 @@ def main():
         "de três unidades: **Ceres, Patrocínio e Croplab**."
     )
 
-    # Botão de navegação para a página de laudos
-    st.markdown("### 🔍 Acesse seus Laudos")
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Criando botões para acessar diferentes páginas
+    st.markdown("### 🔍 Escolha uma Opção")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.page_link("app_exames", label="📂 Consultar Laudos", icon="📑")
 
     with col2:
-        st.page_link("pages/app_exames.py", label="📂 Acessar Laudos", icon="📑")
+        st.page_link("app_exportacao", label="📤 Exportar Dados", icon="📊")
 
     # Rodapé
     st.markdown("---")

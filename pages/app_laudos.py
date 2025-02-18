@@ -9,7 +9,7 @@ UNIDADES_LAUDOS = {
         "Calcário": "tb_ceres_calcario",
         "Composto Orgânico": "tb_ceres_composto_organico",
         "Fertilizante": "tb_ceres_fertilizante",
-        "Folha": "tb_ceres_folha_str",  # Nome correto da tabela
+        "Folha": "tb_ceres_solo",  # Nome correto da tabela
         "Solo": "tb_ceres_solo"
     },
     "Patrocínio": {
