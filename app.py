@@ -34,7 +34,7 @@ def main():
     col1, col2 = st.columns(2)
 
     with col1:
-        st.page_link("app_exames", label="📂 Consultar Laudos", icon="📑")
+        st.page_link("app_laudos", label="📂 Gerar Laudos PDF", icon="📑")
 
     with col2:
         st.page_link("app_exportacao", label="📤 Exportar Dados", icon="📊")
