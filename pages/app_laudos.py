@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -10,34 +11,40 @@ from reportlab.pdfgen import canvas
 
 def gerar_pdf(laudo_record):
     """
-    Gera um PDF com o layout desejado, incluindo logo, cabeçalho de contato,
-    dados do laudo e tabela de amostras.
-    Certifique-se de que o arquivo "logo.png" esteja disponível no mesmo diretório.
+    Gera um PDF com o layout desejado, incluindo:
+      - Logo e cabeçalho de contato;
+      - Dados do laudo (campos do cabeçalho);
+      - Tabela de amostras;
+      - Seção de Resultados (em coluna).
+
+    O arquivo de logo ("logo_safrar.jpeg") deve estar no mesmo diretório deste arquivo,
+    ou informe o caminho absoluto.
     """
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
-    # Insere o logo (ajuste o caminho e tamanho conforme necessário)
+    # Constrói o caminho absoluto para o logo
+    logo_path = os.path.join(os.path.dirname(__file__), "logo_safrar.jpeg")
     try:
-        c.drawImage("logo.png", 40, height - 100, width=100,
+        c.drawImage(logo_path, 40, height - 100, width=100,
                     preserveAspectRatio=True, mask='auto')
     except Exception as e:
         st.write("Erro ao carregar logo:", e)
 
     # Cabeçalho principal (centralizado)
     c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(width/2, height - 50,
+    c.drawCentredString(width / 2, height - 50,
                         "Confiança e Credibilidade ao Seu Alcance")
     c.setFont("Helvetica", 10)
-    c.drawCentredString(width/2, height - 65,
+    c.drawCentredString(width / 2, height - 65,
                         "AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG")
-    c.drawCentredString(width/2, height - 80, "38407-710")
-    c.drawCentredString(
-        width/2, height - 95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
+    c.drawCentredString(width / 2, height - 80, "38407-710")
+    c.drawCentredString(width / 2, height - 95,
+                        "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
     c.line(40, height - 110, width - 40, height - 110)
 
-    # Dados do laudo (cabeçalho)
+    # Dados do laudo (Cabeçalho)
     start_y = height - 130
     line_height = 14
     c.setFont("Helvetica", 10)
@@ -64,9 +71,10 @@ def gerar_pdf(laudo_record):
     start_y -= 20
 
     # Tabela de Amostras
-    table_headers = ["Amostra Nº", "Talhão", "Identificação da amostra", "cm Selo de Qualidade",
-                     "Determinação Unidade", "pH Água 1: 2,5", "pH CaCl2 1: 2,5", "P_Resina mg/dm³"]
-    col_widths = [70, 50, 100, 80, 80, 70, 70, 70]
+    # Cabeçalho da tabela
+    table_headers = ["Amostra Nº", "Talhão",
+                     "Identificação da amostra", "cm Selo de Qualidade"]
+    col_widths = [70, 50, 100, 80]
     x = 40
     c.setFont("Helvetica-Bold", 9)
     for i, header in enumerate(table_headers):
@@ -75,18 +83,35 @@ def gerar_pdf(laudo_record):
     start_y -= line_height
     c.setFont("Helvetica", 9)
 
-    # Exibe cada amostra (assumindo que laudo_record["amostras"] é uma lista de dicionários)
+    # Exibe as amostras (ex.: uma linha com os dados)
     amostras = laudo_record.get("amostras", [])
     for amostra in amostras:
         x = 40
-        for i, field in enumerate(["numamostra", "talhao", "identificacao", "selo", "analise", "ph", "ph_cacl", "p"]):
+        for i, field in enumerate(["numamostra", "talhao", "identificacao", "selo"]):
             value = amostra.get(field, "")
             c.drawString(x, start_y, str(value))
             x += col_widths[i]
         start_y -= line_height
-        if start_y < 50:  # Se chegar próximo do rodapé, cria uma nova página
+        if start_y < 50:
             c.showPage()
             start_y = height - 50
+
+    # Seção de Resultados (exibe os parâmetros em formato de coluna)
+    resultados = laudo_record.get("resultados", {})
+    if resultados:
+        if start_y < 100:
+            c.showPage()
+            start_y = height - 50
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(40, start_y, "Resultados:")
+        start_y -= 20
+        c.setFont("Helvetica", 9)
+        for parametro, valor in resultados.items():
+            c.drawString(40, start_y, f"{parametro}: {valor}")
+            start_y -= line_height
+            if start_y < 50:
+                c.showPage()
+                start_y = height - 50
 
     c.showPage()
     c.save()
@@ -185,8 +210,7 @@ def main():
                 st.error("Nenhum laudo selecionado!")
             else:
                 laudo_record = st.session_state.selected_row
-                # Aqui, para demonstrar o PDF completo, mesclamos dados do laudo com amostras fictícias.
-                # Em uma aplicação real, você deverá obter todas as informações do laudo (incluindo amostras) da base.
+                # Exemplo de dados completos do laudo para o PDF; em produção, obtenha os dados reais da base.
                 laudo_record_full = {
                     "solicitante": "ALEX RIBEIRO DA SILVA",
                     "proprietario": "ALEX RIBEIRO DA SILVA",
@@ -207,12 +231,50 @@ def main():
                             "talhao": "TH 01",
                             "identificacao": "S6",
                             "selo": "0-20",
-                            "analise": "7480/2025",
-                            "ph": "5.66",
-                            "ph_cacl": "5.30",
-                            "p": "19.79"
+                            "analise": "7480/2025"
                         }
-                    ]
+                    ],
+                    "resultados": {
+                        "Determinação Unidade": "7480/2025",
+                        "pH Água 1: 2,5": "5,66",
+                        "pH CaCl2 1: 2,5": "5,30",
+                        "P_Resina mg/dm³": "19,79",
+                        "K_Mehlich-1 mg/dm³": "106,55",
+                        "K cmolc": "0,27",
+                        "Ca_KCl cmolc": "3,72",
+                        "Mg_KCl cmolc": "1,75",
+                        "Al cmolc": "0,00",
+                        "H+Al_SMP cmolc": "3,30",
+                        "S mg/dm³": "6,69",
+                        "C.O %": "1,70",
+                        "M.O %": "2,94",
+                        "B mg/dm³": "0,78",
+                        "Cu_DTPA mg/dm³": "4,90",
+                        "Fe_DTPA mg/dm³": "116,88",
+                        "Mn_DTPA mg/dm³": "20,59",
+                        "Zn_DTPA mg/dm³": "1,23",
+                        "Argila g/kg": "370,00",
+                        "Silte g/kg": "100",
+                        "Areia Total g/kg": "530,00",
+                        "SB cmolc": "5,74",
+                        "CTC pH7,0 cmolc": "9,04",
+                        "CTC efetiva cmolc": "5,74",
+                        "Sat. Base V% %": "63",
+                        "Sat. Al m% %": "0,00",
+                        "Ca/Mg": "2,12",
+                        "Ca/K": "13,65",
+                        "Mg/K": "6,42",
+                        "Ca+Mg/K": "10,14",
+                        "Ca na CTC %": "41,13",
+                        "Mg na CTC %": "19,35",
+                        "K na CTC %": "3,01",
+                        "H+Al na CTC %": "36,49",
+                        "Ca+Mg na CTC %": "90,20",
+                        "Ca+Mg cmolc": "5,47",
+                        "Al na CTC %": "0,00",
+                        "M.O g.dm³": "29,40",
+                        "H cmolc": "3,30"
+                    }
                 }
                 pdf_bytes = gerar_pdf(laudo_record_full)
                 if pdf_bytes:
