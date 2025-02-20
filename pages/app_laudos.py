@@ -150,7 +150,7 @@ def gerar_pdf(laudo_record):
         width/2, height - 95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
     c.line(40, height - 110, width - 40, height - 110)
 
-    # Cabeçalho do laudo em 3 colunas
+    # Cabeçalho do laudo em tabela (3 colunas)
     start_y = height - 130
     start_y = draw_header_table(c, laudo_record, width, start_y)
 
@@ -177,7 +177,7 @@ def gerar_pdf(laudo_record):
         t_amostra.drawOn(c, 40, start_y - t_h)
         start_y -= t_h + 20
 
-    # Seção de Resultados
+    # Seção de Resultados: monta a tabela usando mapping_resultados
     resultados = laudo_record.get("resultados", {})
     processed_resultados = {}
     for pdf_field, db_field in mapping_resultados.items():
@@ -250,15 +250,26 @@ def consultar_detalhes_laudo(tabela, idlaudo):
 
 def agrupar_pedidos(df):
     """
-    Agrupa os laudos por "pedido", retornando um novo dataframe com:
+    Agrupa os laudos por "pedido", retornando um dataframe com:
       - pedido,
+      - total_laudos (número de laudos distintos),
+      - solicitante (primeira ocorrência),
       - entrada (primeira ocorrência),
-      - solicitante (primeira ocorrência).
+      - data (primeira ocorrência).
+    As datas são formatadas para DD/mm/YYYY e aparecem nas últimas colunas.
     """
     grouped = df.groupby("pedido", as_index=False).agg({
+        "idlaudo": "nunique",
+        "solicitante": "first",
         "entrada": "first",
-        "solicitante": "first"
+        "data": "first"
     })
+    grouped.rename(columns={"idlaudo": "total_laudos"}, inplace=True)
+    grouped = grouped[["pedido", "total_laudos",
+                       "solicitante", "entrada", "data"]]
+    grouped["entrada"] = pd.to_datetime(
+        grouped["entrada"]).dt.strftime("%d/%m/%Y")
+    grouped["data"] = pd.to_datetime(grouped["data"]).dt.strftime("%d/%m/%Y")
     return grouped
 
 
@@ -267,10 +278,11 @@ def laudos_por_pedido(df, pedido_val):
     Filtra os laudos para um pedido específico e agrupa por "idlaudo",
     retornando um dataframe com:
       - idlaudo,
-      - entrada,
-      - data,
       - solicitante,
-      - total_amostras (contagem de amostras).
+      - total_amostras (contagem de amostras),
+      - entrada,
+      - data.
+    As datas são formatadas para DD/mm/YYYY e aparecem nas últimas colunas.
     """
     df_filtered = df[df["pedido"] == pedido_val]
     grouped = df_filtered.groupby("idlaudo", as_index=False).agg({
@@ -280,6 +292,11 @@ def laudos_por_pedido(df, pedido_val):
         "numamostra": "count"
     })
     grouped.rename(columns={"numamostra": "total_amostras"}, inplace=True)
+    grouped = grouped[["idlaudo", "solicitante",
+                       "total_amostras", "entrada", "data"]]
+    grouped["entrada"] = pd.to_datetime(
+        grouped["entrada"]).dt.strftime("%d/%m/%Y")
+    grouped["data"] = pd.to_datetime(grouped["data"]).dt.strftime("%d/%m/%Y")
     return grouped
 
 
@@ -293,7 +310,7 @@ def main():
     if 'selected_laudo' not in st.session_state:
         st.session_state.selected_laudo = None
 
-    # Formulário de Filtros - Passo 1
+    # Formulário de Filtros – Passo 1 (Buscar Pedidos)
     with st.form("filtro_form"):
         st.header("Filtros de Pesquisa")
         unidade = st.selectbox("Selecione a Unidade", [
@@ -301,7 +318,7 @@ def main():
         tipo_laudo = st.selectbox("Selecione o Tipo de Laudo", ["Solo"])
         data_inicio = st.date_input("Data Início", value=date(2020, 1, 1))
         data_fim = st.date_input("Data Fim", value=date.today())
-        submit = st.form_submit_button("Buscar Laudos")
+        submit = st.form_submit_button("Buscar Pedidos")
 
     tabelas = {
         "Ceres": {"Solo": "tb_ceres_solo"},
@@ -394,9 +411,18 @@ def main():
 if __name__ == "__main__":
     def agrupar_pedidos(df):
         grouped = df.groupby("pedido", as_index=False).agg({
+            "idlaudo": "nunique",
+            "solicitante": "first",
             "entrada": "first",
-            "solicitante": "first"
+            "data": "first"
         })
+        grouped.rename(columns={"idlaudo": "total_laudos"}, inplace=True)
+        grouped = grouped[["pedido", "total_laudos",
+                           "solicitante", "entrada", "data"]]
+        grouped["entrada"] = pd.to_datetime(
+            grouped["entrada"]).dt.strftime("%d/%m/%Y")
+        grouped["data"] = pd.to_datetime(
+            grouped["data"]).dt.strftime("%d/%m/%Y")
         return grouped
 
     def laudos_por_pedido(df, pedido_val):
@@ -408,6 +434,12 @@ if __name__ == "__main__":
             "numamostra": "count"
         })
         grouped.rename(columns={"numamostra": "total_amostras"}, inplace=True)
+        grouped = grouped[["idlaudo", "solicitante",
+                           "total_amostras", "entrada", "data"]]
+        grouped["entrada"] = pd.to_datetime(
+            grouped["entrada"]).dt.strftime("%d/%m/%Y")
+        grouped["data"] = pd.to_datetime(
+            grouped["data"]).dt.strftime("%d/%m/%Y")
         return grouped
 
     main()
