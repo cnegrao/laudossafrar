@@ -10,12 +10,43 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
-# Injetar o CSS customizado (arquivo dark theme)
-css_file = os.path.join("styles", "styles.css")
-with open(css_file) as f:
-    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+# Injetar os CSS externos do ag‑Grid (incluindo o tema "alpine-dark")
+st.markdown(
+    """
+    <link rel="stylesheet" href="https://unpkg.com/ag-grid-community/dist/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://unpkg.com/ag-grid-community/dist/styles/ag-theme-alpine-dark.css">
+    """,
+    unsafe_allow_html=True
+)
 
-# Mapeamento para o Cabeçalho do Laudo
+# Injetar CSS extra para forçar fundo escuro nos grids
+st.markdown(
+    """
+    <style>
+      .ag-theme-alpine-dark, .ag-theme-alpine-dark .ag-root-wrapper, 
+      .ag-theme-alpine-dark .ag-root-wrapper-body,
+      .ag-theme-alpine-dark .ag-header, 
+      .ag-theme-alpine-dark .ag-header-cell, 
+      .ag-theme-alpine-dark .ag-cell, 
+      .ag-theme-alpine-dark .ag-row {
+          background-color: #121212 !important;
+          color: #e0e0e0 !important;
+      }
+      .ag-theme-alpine-dark .ag-header {
+          background-color: #1e1e1e !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Injetar seu CSS customizado (se houver) da pasta "styles"
+css_file = os.path.join("styles", "styles.css")
+if os.path.exists(css_file):
+    with open(css_file) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Mapeamentos (de‑para)
 mapping_header = {
     "Solicitante": "solicitante",
     "Proprietário": "proprietario",
@@ -30,7 +61,6 @@ mapping_header = {
     "Data Emissão": "data"
 }
 
-# Mapeamento para a Tabela de Amostras
 mapping_amostras = {
     "Amostra Nº": "numamostra",
     "Talhão": "talhao",
@@ -38,7 +68,6 @@ mapping_amostras = {
     "cm Selo de Qualidade": "selo"
 }
 
-# Mapeamento para a Seção de Resultados
 mapping_resultados = {
     "Determinação Unidade": "det_unidade",
     "pH Água 1: 2,5": "ph",
@@ -83,9 +112,6 @@ mapping_resultados = {
 
 
 def draw_header_table(c, laudo_record, width, start_y):
-    """
-    Desenha o cabeçalho do laudo em 3 colunas usando uma tabela.
-    """
     row_data = [
         ["Solicitante:", "Proprietário:", "Propriedade:"],
         [laudo_record.get("solicitante", ""), laudo_record.get(
@@ -123,14 +149,6 @@ def draw_header_table(c, laudo_record, width, start_y):
 
 
 def gerar_pdf(laudo_record):
-    """
-    Gera um PDF com o layout desejado, utilizando os dados do banco.
-    O PDF conterá:
-      - Logo e cabeçalho de contato;
-      - Cabeçalho do laudo em uma tabela de 3 colunas;
-      - Tabela de amostras com grade;
-      - Seção de Resultados em tabela.
-    """
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -218,10 +236,6 @@ def gerar_pdf(laudo_record):
 
 
 def consultar_laudos(tabela, data_inicio, data_fim):
-    """
-    Consulta os laudos na base filtrando pelo intervalo de datas (campo 'entrada'),
-    retornando registros com os campos: idlaudo, entrada, data, pedido, solicitante e numamostra.
-    """
     data_inicio_str = data_inicio.strftime("%Y-%m-%d")
     data_fim_str = data_fim.strftime("%Y-%m-%d")
     sql = f"""
@@ -235,10 +249,6 @@ def consultar_laudos(tabela, data_inicio, data_fim):
 
 
 def consultar_detalhes_laudo(tabela, idlaudo):
-    """
-    Consulta os detalhes completos do laudo a partir do idlaudo.
-    Retorna um dicionário com os dados completos do laudo, incluindo amostras e resultados.
-    """
     sql = f"SELECT * FROM {tabela} WHERE idlaudo = '{idlaudo}'"
     df = run_select(sql)
     if df.empty:
@@ -254,15 +264,6 @@ def consultar_detalhes_laudo(tabela, idlaudo):
 
 
 def agrupar_pedidos(df):
-    """
-    Agrupa os laudos por "pedido", retornando um dataframe com:
-      - pedido,
-      - total_laudos (número de laudos distintos),
-      - solicitante (primeira ocorrência),
-      - entrada (primeira ocorrência),
-      - data (primeira ocorrência).
-    As datas são formatadas para DD/mm/YYYY.
-    """
     grouped = df.groupby("pedido", as_index=False).agg({
         "idlaudo": "nunique",
         "solicitante": "first",
@@ -279,16 +280,6 @@ def agrupar_pedidos(df):
 
 
 def laudos_por_pedido(df, pedido_val):
-    """
-    Filtra os laudos para um pedido específico e agrupa por "idlaudo",
-    retornando um dataframe com:
-      - idlaudo,
-      - solicitante,
-      - total_amostras (contagem de amostras),
-      - entrada,
-      - data.
-    As datas são formatadas para DD/mm/YYYY.
-    """
     df_filtered = df[df["pedido"] == pedido_val]
     grouped = df_filtered.groupby("idlaudo", as_index=False).agg({
         "entrada": "first",
@@ -315,7 +306,6 @@ def main():
     if 'selected_laudo' not in st.session_state:
         st.session_state.selected_laudo = None
 
-    # Formulário de Filtros – Passo 1: Buscar Pedidos
     with st.form("filtro_form"):
         st.header("Filtros de Pesquisa")
         unidade = st.selectbox("Selecione a Unidade", [
@@ -342,7 +332,6 @@ def main():
             return
         st.session_state.df = df
 
-    # Grid 1: Pedidos
     if st.session_state.df is not None:
         st.subheader("Pedidos Encontrados")
         df_pedidos = agrupar_pedidos(st.session_state.df)
@@ -367,7 +356,6 @@ def main():
         else:
             st.info("Selecione um pedido no grid acima.")
 
-    # Grid 2: Laudos do Pedido Selecionado
     if st.session_state.df is not None and st.session_state.selected_pedido:
         st.subheader("Laudos do Pedido Selecionado")
         df_laudos = laudos_por_pedido(
@@ -393,7 +381,6 @@ def main():
         else:
             st.info("Selecione um laudo no grid acima.")
 
-    # Geração do PDF
     if st.button("Gerar PDF"):
         if not st.session_state.selected_laudo:
             st.error("Nenhum laudo selecionado!")
