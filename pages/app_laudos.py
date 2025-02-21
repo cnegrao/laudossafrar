@@ -10,7 +10,7 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
-# Injeção do CSS customizado
+# Injetar o CSS customizado (arquivo dark theme)
 css_file = os.path.join("styles", "styles.css")
 with open(css_file) as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
@@ -102,11 +102,11 @@ def draw_header_table(c, laudo_record, width, start_y):
     ]
     table = Table(row_data, colWidths=[(width-80)/3]*3)
     style = TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('BACKGROUND', (0, 4), (-1, 4), colors.lightgrey),
-        ('BACKGROUND', (0, 6), (-1, 6), colors.lightgrey),
-        ('BACKGROUND', (0, 8), (-1, 8), colors.lightgrey),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('BACKGROUND', (0, 4), (-1, 4), colors.grey),
+        ('BACKGROUND', (0, 6), (-1, 6), colors.grey),
+        ('BACKGROUND', (0, 8), (-1, 8), colors.grey),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 4), (-1, 4), 'Helvetica-Bold'),
         ('FONTNAME', (0, 6), (-1, 6), 'Helvetica-Bold'),
@@ -129,7 +129,7 @@ def gerar_pdf(laudo_record):
       - Logo e cabeçalho de contato;
       - Cabeçalho do laudo em uma tabela de 3 colunas;
       - Tabela de amostras com grade;
-      - Seção de Resultados em tabela (grade).
+      - Seção de Resultados em tabela.
     """
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -155,7 +155,7 @@ def gerar_pdf(laudo_record):
         width/2, height - 95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
     c.line(40, height - 110, width - 40, height - 110)
 
-    # Cabeçalho do Laudo em tabela (3 colunas)
+    # Cabeçalho do laudo em 3 colunas
     start_y = height - 130
     start_y = draw_header_table(c, laudo_record, width, start_y)
 
@@ -169,8 +169,8 @@ def gerar_pdf(laudo_record):
     if len(amostra_data) > 1:
         t_amostra = Table(amostra_data, colWidths=[70, 50, 100, 80])
         t_amostra.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 1, colors.white),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER')
@@ -197,8 +197,8 @@ def gerar_pdf(laudo_record):
                 [pdf_field, processed_resultados.get(db_field, "")])
         t_result = Table(resultados_data, colWidths=[250, 100])
         t_result.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 1, colors.white),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('ALIGN', (1, 1), (-1, -1), 'CENTER')
@@ -321,8 +321,11 @@ def main():
         unidade = st.selectbox("Selecione a Unidade", [
                                "Ceres", "Patrocínio", "Croplab"])
         tipo_laudo = st.selectbox("Selecione o Tipo de Laudo", ["Solo"])
-        data_inicio = st.date_input("Data Início", value=date(2020, 1, 1))
-        data_fim = st.date_input("Data Fim", value=date.today())
+        col1, col2 = st.columns(2)
+        with col1:
+            data_inicio = st.date_input("Data Início", value=date(2020, 1, 1))
+        with col2:
+            data_fim = st.date_input("Data Fim", value=date.today())
         submit = st.form_submit_button("Buscar Pedidos")
 
     tabelas = {
@@ -350,7 +353,7 @@ def main():
             df_pedidos,
             gridOptions=grid_options1,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
-            theme="alpine",
+            theme="alpine-dark",
             height=200,
             fit_columns_on_grid_load=True
         )
@@ -376,7 +379,7 @@ def main():
             df_laudos,
             gridOptions=grid_options2,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
-            theme="alpine",
+            theme="alpine-dark",
             height=200,
             fit_columns_on_grid_load=True
         )
