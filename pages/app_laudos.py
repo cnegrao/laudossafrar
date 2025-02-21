@@ -10,6 +10,11 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
+# Injeção do CSS customizado
+css_file = os.path.join("styles", "styles.css")
+with open(css_file) as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
 # Mapeamento para o Cabeçalho do Laudo
 mapping_header = {
     "Solicitante": "solicitante",
@@ -150,7 +155,7 @@ def gerar_pdf(laudo_record):
         width/2, height - 95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
     c.line(40, height - 110, width - 40, height - 110)
 
-    # Cabeçalho do laudo em tabela (3 colunas)
+    # Cabeçalho do Laudo em tabela (3 colunas)
     start_y = height - 130
     start_y = draw_header_table(c, laudo_record, width, start_y)
 
@@ -177,7 +182,7 @@ def gerar_pdf(laudo_record):
         t_amostra.drawOn(c, 40, start_y - t_h)
         start_y -= t_h + 20
 
-    # Seção de Resultados: monta a tabela usando mapping_resultados
+    # Seção de Resultados
     resultados = laudo_record.get("resultados", {})
     processed_resultados = {}
     for pdf_field, db_field in mapping_resultados.items():
@@ -256,7 +261,7 @@ def agrupar_pedidos(df):
       - solicitante (primeira ocorrência),
       - entrada (primeira ocorrência),
       - data (primeira ocorrência).
-    As datas são formatadas para DD/mm/YYYY e aparecem nas últimas colunas.
+    As datas são formatadas para DD/mm/YYYY.
     """
     grouped = df.groupby("pedido", as_index=False).agg({
         "idlaudo": "nunique",
@@ -282,7 +287,7 @@ def laudos_por_pedido(df, pedido_val):
       - total_amostras (contagem de amostras),
       - entrada,
       - data.
-    As datas são formatadas para DD/mm/YYYY e aparecem nas últimas colunas.
+    As datas são formatadas para DD/mm/YYYY.
     """
     df_filtered = df[df["pedido"] == pedido_val]
     grouped = df_filtered.groupby("idlaudo", as_index=False).agg({
@@ -310,7 +315,7 @@ def main():
     if 'selected_laudo' not in st.session_state:
         st.session_state.selected_laudo = None
 
-    # Formulário de Filtros – Passo 1 (Buscar Pedidos)
+    # Formulário de Filtros – Passo 1: Buscar Pedidos
     with st.form("filtro_form"):
         st.header("Filtros de Pesquisa")
         unidade = st.selectbox("Selecione a Unidade", [
@@ -345,7 +350,7 @@ def main():
             df_pedidos,
             gridOptions=grid_options1,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
-            theme="blue",
+            theme="alpine",
             height=200,
             fit_columns_on_grid_load=True
         )
@@ -371,7 +376,7 @@ def main():
             df_laudos,
             gridOptions=grid_options2,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
-            theme="blue",
+            theme="alpine",
             height=200,
             fit_columns_on_grid_load=True
         )
