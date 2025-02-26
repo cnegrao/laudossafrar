@@ -1,8 +1,8 @@
-/* styles/styles.css */
+/* Global Styles */
 body, .stApp {
     background-color: #121212; /* Fundo muito escuro */
     font-family: 'Roboto', sans-serif;
-    color: #e0e0e0; /* Texto claro */
+    color: #e0e0e0;
     margin: 0;
     padding: 0;
 }
@@ -12,26 +12,31 @@ h1, h2, h3, h4, h5 {
     font-weight: 600;
 }
 
-/* Tema dark para o AgGrid */
+/* AG Grid - Alpine Dark Theme Overrides */
 .ag-theme-alpine-dark {
-    background-color: #121212 !important;
-    color: #e0e0e0 !important;
-    font-family: 'Roboto', sans-serif;
-    font-size: 13px;
-}
-
-.ag-theme-alpine-dark .ag-root-wrapper {
+    /* Força o fundo e cor padrão do tema */
     background-color: #121212 !important;
     color: #e0e0e0 !important;
 }
 
-.ag-theme-alpine-dark .ag-header, 
-.ag-theme-alpine-dark .ag-cell {
+/* Aplica a cor de fundo e de texto para os principais elementos do grid */
+.ag-theme-alpine-dark .ag-root-wrapper,
+.ag-theme-alpine-dark .ag-root-wrapper-body,
+.ag-theme-alpine-dark .ag-header,
+.ag-theme-alpine-dark .ag-cell,
+.ag-theme-alpine-dark .ag-row,
+.ag-theme-alpine-dark .ag-body-viewport,
+.ag-theme-alpine-dark * {
     background-color: #121212 !important;
     color: #e0e0e0 !important;
 }
 
-/* Botões */
+/* Opcional: Ajusta o fundo do cabeçalho para um tom levemente diferente */
+.ag-theme-alpine-dark .ag-header {
+    background-color: #1e1e1e !important;
+}
+
+/* Estilo para botões (Streamlit) */
 .stButton > button {
     background-color: #1e88e5;
     color: #ffffff;
