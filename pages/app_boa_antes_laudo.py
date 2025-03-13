@@ -10,7 +10,7 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
-# Injetar os CSS externos do ag‑Grid (incluindo o tema "alpine-dark")
+# Injetar os CSS externos do AG Grid para o tema "alpine-dark"
 st.markdown(
     """
     <link rel="stylesheet" href="https://unpkg.com/ag-grid-community/dist/styles/ag-grid.css">
@@ -19,34 +19,34 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Injetar CSS extra para forçar fundo escuro nos grids
+# Injetar CSS extra para forçar o fundo escuro usando as variáveis do tema
 st.markdown(
     """
     <style>
-      .ag-theme-alpine-dark, .ag-theme-alpine-dark .ag-root-wrapper, 
-      .ag-theme-alpine-dark .ag-root-wrapper-body,
-      .ag-theme-alpine-dark .ag-header, 
-      .ag-theme-alpine-dark .ag-header-cell, 
-      .ag-theme-alpine-dark .ag-cell, 
-      .ag-theme-alpine-dark .ag-row {
-          background-color: #121212 !important;
-          color: #e0e0e0 !important;
+      .ag-theme-alpine-dark {
+          --ag-background-color: #121212 !important;
+          --ag-foreground-color: #e0e0e0 !important;
+          --ag-header-background-color: #1e1e1e !important;
+          --ag-header-text-color: #e0e0e0 !important;
+          --ag-cell-text-color: #e0e0e0 !important;
+          --ag-border-color: #333333 !important;
       }
-      .ag-theme-alpine-dark .ag-header {
-          background-color: #1e1e1e !important;
+      .ag-theme-alpine-dark, .ag-theme-alpine-dark * {
+          background-color: var(--ag-background-color) !important;
+          color: var(--ag-foreground-color) !important;
       }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# Injetar seu CSS customizado (se houver) da pasta "styles"
+# (Opcional) Injetar CSS customizado extra se existir um arquivo na pasta "styles"
 css_file = os.path.join("styles", "styles.css")
 if os.path.exists(css_file):
     with open(css_file) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# Mapeamentos (de‑para)
+# --- Mapeamentos para a geração do PDF ---
 mapping_header = {
     "Solicitante": "solicitante",
     "Proprietário": "proprietario",
@@ -153,7 +153,6 @@ def gerar_pdf(laudo_record):
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
-    # Logo
     logo_path = os.path.join(os.path.dirname(__file__), "logo_safrar.jpeg")
     try:
         c.drawImage(logo_path, 40, height - 100, width=100,
@@ -161,7 +160,6 @@ def gerar_pdf(laudo_record):
     except Exception as e:
         st.write("Erro ao carregar logo:", e)
 
-    # Cabeçalho principal
     c.setFont("Helvetica-Bold", 16)
     c.drawCentredString(width/2, height - 50,
                         "Confiança e Credibilidade ao Seu Alcance")
@@ -173,11 +171,9 @@ def gerar_pdf(laudo_record):
         width/2, height - 95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
     c.line(40, height - 110, width - 40, height - 110)
 
-    # Cabeçalho do laudo em 3 colunas
     start_y = height - 130
     start_y = draw_header_table(c, laudo_record, width, start_y)
 
-    # Tabela de Amostras
     amostra_headers = list(mapping_amostras.keys())
     amostra_data = [amostra_headers]
     for amostra in laudo_record.get("amostras", []):
@@ -200,7 +196,6 @@ def gerar_pdf(laudo_record):
         t_amostra.drawOn(c, 40, start_y - t_h)
         start_y -= t_h + 20
 
-    # Seção de Resultados
     resultados = laudo_record.get("resultados", {})
     processed_resultados = {}
     for pdf_field, db_field in mapping_resultados.items():
@@ -320,7 +315,7 @@ def main():
 
     tabelas = {
         "Ceres": {"Solo": "tb_ceres_solo"},
-        "Patrocínio": {"Solo": "tb_patrocinio_solo"},
+        "Patrocínio": {"Solo": "tb_croplab_solo"},
         "Croplab": {"Solo": "tb_croplab_solo"}
     }
 
