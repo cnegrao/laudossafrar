@@ -350,80 +350,90 @@ def main():
     if 'selected_laudo' not in st.session_state:
         st.session_state.selected_laudo = None
 
-    # Encapsula os campos de filtro dentro de um st.expander
+    # Filtros de Pesquisa com carregamento encadeado
     with st.expander("Filtros de Pesquisa"):
+        with st.container():
+            # Exibe Unidade com opção padrão "Selecione"
+            unidade = st.selectbox("Unidade", [
+                                   "Selecione", "Ceres", "Patrocínio", "Croplab"], key="selected_unidade")
 
-        st.header("Filtros de Pesquisa")
-        # Linha com Unidade e Tipo de Laudo
-        col1, col2 = st.columns(2)
-        with col1:
-            unidade = st.selectbox(
-                "Unidade", ["Ceres", "Patrocínio", "Croplab"], key="selected_unidade")
-        with col2:
-            tipo_laudo = st.selectbox(
-                "Tipo de Laudo", ["Solo"], key="selected_tipo_laudo")
-        # Linha com Proprietário, Propriedade e Talhão
-        col3, col4, col5 = st.columns(3)
-        tabelas = {
-            "Ceres": {"Solo": "tb_ceres_solo"},
-            "Patrocínio": {"Solo": "tb_croplab_solo"},
-            "Croplab": {"Solo": "tb_croplab_solo"}
-        }
-        tabela = tabelas[unidade][tipo_laudo]
-        proprietario_options = obter_proprietarios(
-            tabela, date(2020, 1, 1), date.today())
-        proprietario_select = st.selectbox(
-            "Proprietário", ["Todos"] + proprietario_options, key="selected_proprietario")
-        if proprietario_select != "Todos":
-            propriedade_options = obter_propriedades_por_proprietario(
-                tabela, proprietario_select)
-        else:
-            propriedade_options = []
-        propriedade_select = st.selectbox(
-            "Propriedade", ["Todos"] + propriedade_options, key="selected_propriedade")
-        if propriedade_select != "Todos":
-            talhao_options = obter_talhoes_por_propriedade(
-                tabela, propriedade_select)
-        else:
-            talhao_options = []
-        talhao_select = st.selectbox(
-            "Talhão", ["Selecione a Propriedade!"] + talhao_options, key="selected_talhao")
+            # Só exibe Tipo de Laudo se Unidade válida for selecionada
+            if unidade != "Selecione":
+                tipo_laudo = st.selectbox(
+                    "Tipo de Laudo", ["Selecione", "Solo"], key="selected_tipo_laudo")
+            else:
+                tipo_laudo = None
 
-        # Linha com Data Início e Data Fim
-        col6, col7 = st.columns(2)
-        with col6:
-            data_inicio = st.date_input("Data Início", value=date(
-                2020, 1, 1), key="selected_data_inicio")
-        with col7:
-            data_fim = st.date_input(
-                "Data Fim", value=date.today(), key="selected_data_fim")
+            # Só exibe Proprietário se Tipo de Laudo for válido
+            if tipo_laudo and tipo_laudo != "Selecione":
+                tabelas = {
+                    "Ceres": {"Solo": "tb_ceres_solo"},
+                    "Patrocínio": {"Solo": "tb_croplab_solo"},
+                    "Croplab": {"Solo": "tb_croplab_solo"}
+                }
+                tabela = tabelas[unidade][tipo_laudo]
+                proprietario_options = obter_proprietarios(
+                    tabela, date(2020, 1, 1), date.today())
+                proprietario_select = st.selectbox(
+                    "Proprietário", ["Selecione"] + proprietario_options, key="selected_proprietario")
+            else:
+                proprietario_select = None
 
-        submit = st.button("Buscar Pedidos")
+            # Só exibe Propriedade se Proprietário for válido
+            if proprietario_select and proprietario_select != "Selecione":
+                propriedade_options = obter_propriedades_por_proprietario(
+                    tabela, proprietario_select)
+                propriedade_select = st.selectbox(
+                    "Propriedade", ["Selecione"] + propriedade_options, key="selected_propriedade")
+            else:
+                propriedade_select = None
 
-    st.markdown("**Filtros Selecionados:**")
-    st.write({
-        "Unidade": unidade,
-        "Tipo de Laudo": tipo_laudo,
-        "Proprietário": proprietario_select,
-        "Propriedade": propriedade_select,
-        "Talhão": talhao_select,
-        "Data Início": data_inicio,
-        "Data Fim": data_fim
-    })
+            # Só exibe Talhão se Propriedade for válida
+            if propriedade_select and propriedade_select != "Selecione":
+                talhao_options = obter_talhoes_por_propriedade(
+                    tabela, propriedade_select)
+                talhao_select = st.selectbox(
+                    "Talhão", ["Selecione"] + talhao_options, key="selected_talhao")
+            else:
+                talhao_select = None
+
+            # Datas são sempre exibidas
+            col6, col7 = st.columns(2)
+            with col6:
+                data_inicio = st.date_input("Data Início", value=date(
+                    2020, 1, 1), key="selected_data_inicio")
+            with col7:
+                data_fim = st.date_input(
+                    "Data Fim", value=date.today(), key="selected_data_fim")
+
+            submit = st.button("Buscar Pedidos")
+
+        st.markdown("**Filtros Selecionados:**")
+        st.write({
+            "Unidade": unidade,
+            "Tipo de Laudo": tipo_laudo,
+            "Proprietário": proprietario_select,
+            "Propriedade": propriedade_select,
+            "Talhão": talhao_select,
+            "Data Início": data_inicio,
+            "Data Fim": data_fim
+        })
 
     if submit:
-        if not unidade:
+        if not unidade or unidade == "Selecione":
             st.warning("Por favor, selecione uma Unidade para continuar.")
+        elif not tipo_laudo or tipo_laudo == "Selecione":
+            st.warning("Por favor, selecione um Tipo de Laudo para continuar.")
         else:
             df = consultar_laudos(tabela, data_inicio, data_fim)
             if df.empty:
                 st.error("Nenhum laudo encontrado para os filtros informados.")
                 return
-            if proprietario_select != "Todos":
+            if proprietario_select and proprietario_select != "Selecione":
                 df = df[df["proprietario"].str.strip() == proprietario_select]
-            if propriedade_select != "Todos":
+            if propriedade_select and propriedade_select != "Selecione":
                 df = df[df["propriedade"].str.strip() == propriedade_select]
-            if talhao_select != "Selecione a Propriedade!":
+            if talhao_select and talhao_select != "Selecione":
                 df = df[df["talhao"].str.strip() == talhao_select]
             st.session_state.df = df
 
@@ -431,10 +441,9 @@ def main():
         row_count = st.session_state.df.shape[0]
         st.markdown(f"**Pedidos Encontrados: {row_count}**")
 
-    # Encapsula os campos de pedidos dentro de um st.expander
+    # Exibição dos pedidos encontrados
     with st.expander("Pedidos Encontrados"):
         if st.session_state.get("df") is not None:
-            # st.subheader("Pedidos Encontrados")
             df_pedidos = agrupar_pedidos(st.session_state.df)
             gb1 = GridOptionsBuilder.from_dataframe(df_pedidos)
             gb1.configure_selection("single", use_checkbox=True)
@@ -456,7 +465,7 @@ def main():
                 st.write(st.session_state.selected_pedido)
             else:
                 st.info("Selecione um pedido no grid acima.")
-# Encapsula os campos de pedidos dentro de um st.expander
+
     with st.expander("Laudos do Pedido Selecionado"):
         if st.session_state.get("df") is not None and st.session_state.get("selected_pedido"):
             st.subheader("Laudos do Pedido Selecionado")
