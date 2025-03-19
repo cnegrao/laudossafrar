@@ -19,7 +19,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Injetar CSS extra para forçar o fundo escuro usando as variáveis do tema
+# Injetar CSS extra para forçar o fundo escuro e definir o estilo do container dos filtros (frame)
 st.markdown(
     """
     <style>
@@ -35,12 +35,17 @@ st.markdown(
           background-color: var(--ag-background-color) !important;
           color: var(--ag-foreground-color) !important;
       }
+      .filter-container {
+          border: 1px solid #ccc;
+          padding: 16px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+      }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# (Opcional) Injetar CSS customizado extra se existir um arquivo na pasta "styles"
 css_file = os.path.join("styles", "styles.css")
 if os.path.exists(css_file):
     with open(css_file) as f:
@@ -52,7 +57,7 @@ mapping_header = {
     "Proprietário": "proprietario",
     "Propriedade": "propriedade",
     "Laudo": "descricao",
-    "Cultura": "nomcultura",
+    "Cultura": "nomacultura",
     "Cidade/UF": "municipio",
     "Matricula": "numero",
     "Nº Laudo": "idlaudo",
@@ -110,16 +115,78 @@ mapping_resultados = {
     "H cmolc": "h_cmolc"
 }
 
+# ===============================
+# Funções para obter dados dos filtros
+# ===============================
+
+
+def obter_proprietarios(tabela, data_inicio, data_fim):
+    sql = f"""
+    SELECT DISTINCT TRIM(proprietario) AS proprietario 
+    FROM {tabela} 
+    WHERE entrada BETWEEN '{data_inicio.strftime("%Y-%m-%d")}' AND '{data_fim.strftime("%Y-%m-%d")}'
+    ORDER BY proprietario
+    """
+    df = run_select(sql)
+    if df.empty:
+        return []
+    return df['proprietario'].dropna().unique().tolist()
+
+
+def obter_propriedades_por_proprietario(tabela, proprietario):
+    sql = f"""
+    SELECT DISTINCT TRIM(propriedade) AS propriedade 
+    FROM {tabela} 
+    WHERE TRIM(proprietario) = '{proprietario}'
+    ORDER BY propriedade
+    """
+    df = run_select(sql)
+    if df.empty:
+        return []
+    return df['propriedade'].dropna().unique().tolist()
+
+
+def obter_talhoes_por_propriedade(tabela, propriedade):
+    sql = f"""
+    SELECT DISTINCT 
+           CASE 
+             WHEN TRIM(talhao) = '' OR talhao IS NULL THEN 'Talhao Não Informado!'
+             ELSE TRIM(talhao)
+           END AS talhao 
+    FROM {tabela} 
+    WHERE LOWER(TRIM(propriedade)) = LOWER('{propriedade}') OR LOWER(TRIM(propriedade)) = LOWER('{propriedade}')
+    ORDER BY talhao
+    """
+    # Para garantir que a comparação seja feita corretamente, utilize LOWER para ambos.
+    sql = f"""
+    SELECT DISTINCT 
+           CASE 
+             WHEN TRIM(talhao) = '' OR talhao IS NULL THEN 'Talhao Não Informado!'
+             ELSE TRIM(talhao)
+           END AS talhao 
+    FROM {tabela} 
+    WHERE LOWER(TRIM(propriedade)) = LOWER('{propriedade}')
+    ORDER BY talhao
+    """
+    df = run_select(sql)
+    if df.empty:
+        return []
+    return df['talhao'].dropna().unique().tolist()
+
+# ===============================
+# Funções auxiliares para PDF e consulta
+# ===============================
+
 
 def draw_header_table(c, laudo_record, width, start_y):
     row_data = [
         ["Solicitante:", "Proprietário:", "Propriedade:"],
         [laudo_record.get("solicitante", ""), laudo_record.get(
-            "proprietario", ""), laudo_record.get("propriedade", "")],
+            "proprietario", "").strip(), laudo_record.get("propriedade", "")],
         ["Laudo:", "", ""],
         [laudo_record.get("descricao", ""), "", ""],
         ["Cultura:", "Cidade/UF:", "Matricula:"],
-        [laudo_record.get("nomcultura", ""), laudo_record.get(
+        [laudo_record.get("nomacultura", ""), laudo_record.get(
             "municipio", ""), laudo_record.get("numero", "")],
         ["Nº Laudo:", "Nº Pedido:", ""],
         [laudo_record.get("idlaudo", ""), laudo_record.get("pedido", ""), ""],
@@ -144,7 +211,7 @@ def draw_header_table(c, laudo_record, width, start_y):
     style.add('SPAN', (0, 3), (-1, 3))
     table.setStyle(style)
     t_w, t_h = table.wrap(width-80, start_y)
-    table.drawOn(c, 40, start_y - t_h)
+    table.drawOn(c, 40, start_y-t_h)
     return start_y - t_h - 20
 
 
@@ -152,28 +219,24 @@ def gerar_pdf(laudo_record):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
-
     logo_path = os.path.join(os.path.dirname(__file__), "logo_safrar.jpeg")
     try:
-        c.drawImage(logo_path, 40, height - 100, width=100,
+        c.drawImage(logo_path, 40, height-100, width=100,
                     preserveAspectRatio=True, mask='auto')
     except Exception as e:
         st.write("Erro ao carregar logo:", e)
-
     c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(width/2, height - 50,
+    c.drawCentredString(width/2, height-50,
                         "Confiança e Credibilidade ao Seu Alcance")
     c.setFont("Helvetica", 10)
-    c.drawCentredString(width/2, height - 65,
+    c.drawCentredString(width/2, height-65,
                         "AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG")
-    c.drawCentredString(width/2, height - 80, "38407-710")
+    c.drawCentredString(width/2, height-80, "38407-710")
     c.drawCentredString(
-        width/2, height - 95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
-    c.line(40, height - 110, width - 40, height - 110)
-
-    start_y = height - 130
+        width/2, height-95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
+    c.line(40, height-110, width-40, height-110)
+    start_y = height-130
     start_y = draw_header_table(c, laudo_record, width, start_y)
-
     amostra_headers = list(mapping_amostras.keys())
     amostra_data = [amostra_headers]
     for amostra in laudo_record.get("amostras", []):
@@ -190,12 +253,11 @@ def gerar_pdf(laudo_record):
             ('ALIGN', (0, 0), (-1, -1), 'CENTER')
         ]))
         t_w, t_h = t_amostra.wrap(width-80, start_y)
-        if start_y - t_h < 50:
+        if start_y-t_h < 50:
             c.showPage()
-            start_y = height - 50
-        t_amostra.drawOn(c, 40, start_y - t_h)
-        start_y -= t_h + 20
-
+            start_y = height-50
+        t_amostra.drawOn(c, 40, start_y-t_h)
+        start_y -= t_h+20
     resultados = laudo_record.get("resultados", {})
     processed_resultados = {}
     for pdf_field, db_field in mapping_resultados.items():
@@ -217,12 +279,11 @@ def gerar_pdf(laudo_record):
             ('ALIGN', (1, 1), (-1, -1), 'CENTER')
         ]))
         t_w, t_h = t_result.wrap(width-80, start_y)
-        if start_y - t_h < 50:
+        if start_y-t_h < 50:
             c.showPage()
-            start_y = height - 50
-        t_result.drawOn(c, 40, start_y - t_h)
-        start_y -= t_h + 20
-
+            start_y = height-50
+        t_result.drawOn(c, 40, start_y-t_h)
+        start_y -= t_h+20
     c.showPage()
     c.save()
     pdf_bytes = buffer.getvalue()
@@ -231,12 +292,10 @@ def gerar_pdf(laudo_record):
 
 
 def consultar_laudos(tabela, data_inicio, data_fim):
-    data_inicio_str = data_inicio.strftime("%Y-%m-%d")
-    data_fim_str = data_fim.strftime("%Y-%m-%d")
     sql = f"""
-    SELECT idlaudo, entrada, data, pedido, solicitante, numamostra
+    SELECT idlaudo, entrada, data, pedido, solicitante, numamostra, proprietario, propriedade, talhao
     FROM {tabela}
-    WHERE entrada BETWEEN '{data_inicio_str}' AND '{data_fim_str}'
+    WHERE entrada BETWEEN '{data_inicio.strftime("%Y-%m-%d")}' AND '{data_fim.strftime("%Y-%m-%d")}'
     ORDER BY entrada DESC
     """
     df = run_select(sql)
@@ -294,6 +353,7 @@ def laudos_por_pedido(df, pedido_val):
 def main():
     st.title("Consulta de Laudos Agrícolas")
 
+    # Inicializa o session state
     if 'df' not in st.session_state:
         st.session_state.df = None
     if 'selected_pedido' not in st.session_state:
@@ -301,33 +361,89 @@ def main():
     if 'selected_laudo' not in st.session_state:
         st.session_state.selected_laudo = None
 
-    with st.form("filtro_form"):
+    # Container de filtros com frame
+    with st.container():
+        st.markdown('<div class="filter-container">', unsafe_allow_html=True)
         st.header("Filtros de Pesquisa")
-        unidade = st.selectbox("Selecione a Unidade", [
-                               "Ceres", "Patrocínio", "Croplab"])
-        tipo_laudo = st.selectbox("Selecione o Tipo de Laudo", ["Solo"])
+        # Linha com Unidade e Tipo de Laudo
         col1, col2 = st.columns(2)
         with col1:
-            data_inicio = st.date_input("Data Início", value=date(2020, 1, 1))
+            unidade = st.selectbox(
+                "Unidade", ["Ceres", "Patrocínio", "Croplab"], key="selected_unidade")
         with col2:
-            data_fim = st.date_input("Data Fim", value=date.today())
-        submit = st.form_submit_button("Buscar Pedidos")
+            tipo_laudo = st.selectbox(
+                "Tipo de Laudo", ["Solo"], key="selected_tipo_laudo")
+        # Linha com Proprietário, Propriedade e Talhão
+        col3, col4, col5 = st.columns(3)
+        tabelas = {
+            "Ceres": {"Solo": "tb_ceres_solo"},
+            "Patrocínio": {"Solo": "tb_croplab_solo"},
+            "Croplab": {"Solo": "tb_croplab_solo"}
+        }
+        tabela = tabelas[unidade][tipo_laudo]
+        proprietario_options = obter_proprietarios(
+            tabela, date(2020, 1, 1), date.today())
+        proprietario_select = st.selectbox(
+            "Proprietário", ["Todos"] + proprietario_options, key="selected_proprietario")
+        if proprietario_select != "Todos":
+            propriedade_options = obter_propriedades_por_proprietario(
+                tabela, proprietario_select)
+        else:
+            propriedade_options = []
+        propriedade_select = st.selectbox(
+            "Propriedade", ["Todos"] + propriedade_options, key="selected_propriedade")
+        if propriedade_select != "Todos":
+            talhao_options = obter_talhoes_por_propriedade(
+                tabela, propriedade_select)
+        else:
+            talhao_options = []
+        talhao_select = st.selectbox(
+            "Talhão", ["Selecione a Propriedade!"] + talhao_options, key="selected_talhao")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    tabelas = {
-        "Ceres": {"Solo": "tb_ceres_solo"},
-        "Patrocínio": {"Solo": "tb_croplab_solo"},
-        "Croplab": {"Solo": "tb_croplab_solo"}
-    }
+        # Linha com Data Início e Data Fim
+        col6, col7 = st.columns(2)
+        with col6:
+            data_inicio = st.date_input("Data Início", value=date(
+                2020, 1, 1), key="selected_data_inicio")
+        with col7:
+            data_fim = st.date_input(
+                "Data Fim", value=date.today(), key="selected_data_fim")
+
+        submit = st.button("Buscar Pedidos")
+
+    st.markdown("**Filtros Selecionados:**")
+    st.write({
+        "Unidade": unidade,
+        "Tipo de Laudo": tipo_laudo,
+        "Proprietário": proprietario_select,
+        "Propriedade": propriedade_select,
+        "Talhão": talhao_select,
+        "Data Início": data_inicio,
+        "Data Fim": data_fim
+    })
 
     if submit:
-        tabela = tabelas[unidade][tipo_laudo]
-        df = consultar_laudos(tabela, data_inicio, data_fim)
-        if df.empty:
-            st.error("Nenhum laudo encontrado para os filtros informados.")
-            return
-        st.session_state.df = df
+        if not unidade:
+            st.warning("Por favor, selecione uma Unidade para continuar.")
+        else:
+            df = consultar_laudos(tabela, data_inicio, data_fim)
+            if df.empty:
+                st.error("Nenhum laudo encontrado para os filtros informados.")
+                return
+            if proprietario_select != "Todos":
+                df = df[df["proprietario"].str.strip() == proprietario_select]
+            if propriedade_select != "Todos":
+                df = df[df["propriedade"].str.strip() == propriedade_select]
+            if talhao_select != "Selecione a Propriedade!":
+                df = df[df["talhao"].str.strip() == talhao_select]
+            st.session_state.df = df
 
-    if st.session_state.df is not None:
+    if st.session_state.get("df") is not None:
+        row_count = st.session_state.df.shape[0]
+        st.markdown(f"**Pedidos Encontrados: {row_count}**")
+
+    if st.session_state.get("df") is not None:
         st.subheader("Pedidos Encontrados")
         df_pedidos = agrupar_pedidos(st.session_state.df)
         gb1 = GridOptionsBuilder.from_dataframe(df_pedidos)
@@ -351,7 +467,7 @@ def main():
         else:
             st.info("Selecione um pedido no grid acima.")
 
-    if st.session_state.df is not None and st.session_state.selected_pedido:
+    if st.session_state.get("df") is not None and st.session_state.get("selected_pedido"):
         st.subheader("Laudos do Pedido Selecionado")
         df_laudos = laudos_por_pedido(
             st.session_state.df, st.session_state.selected_pedido)
@@ -377,11 +493,10 @@ def main():
             st.info("Selecione um laudo no grid acima.")
 
     if st.button("Gerar PDF"):
-        if not st.session_state.selected_laudo:
+        if not st.session_state.get("selected_laudo"):
             st.error("Nenhum laudo selecionado!")
         else:
             idlaudo = st.session_state.selected_laudo
-            tabela = tabelas[unidade][tipo_laudo]
             laudo_record_full = consultar_detalhes_laudo(tabela, idlaudo)
             if not laudo_record_full:
                 st.error("Falha ao obter os detalhes do laudo.")
