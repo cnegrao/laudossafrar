@@ -154,17 +154,6 @@ def obter_talhoes_por_propriedade(tabela, propriedade):
              ELSE TRIM(talhao)
            END AS talhao 
     FROM {tabela} 
-    WHERE LOWER(TRIM(propriedade)) = LOWER('{propriedade}') OR LOWER(TRIM(propriedade)) = LOWER('{propriedade}')
-    ORDER BY talhao
-    """
-    # Para garantir que a comparação seja feita corretamente, utilize LOWER para ambos.
-    sql = f"""
-    SELECT DISTINCT 
-           CASE 
-             WHEN TRIM(talhao) = '' OR talhao IS NULL THEN 'Talhao Não Informado!'
-             ELSE TRIM(talhao)
-           END AS talhao 
-    FROM {tabela} 
     WHERE LOWER(TRIM(propriedade)) = LOWER('{propriedade}')
     ORDER BY talhao
     """
@@ -361,9 +350,9 @@ def main():
     if 'selected_laudo' not in st.session_state:
         st.session_state.selected_laudo = None
 
-    # Container de filtros com frame
-    with st.container():
-        st.markdown('<div class="filter-container">', unsafe_allow_html=True)
+    # Encapsula os campos de filtro dentro de um st.expander
+    with st.expander("Filtros de Pesquisa"):
+
         st.header("Filtros de Pesquisa")
         # Linha com Unidade e Tipo de Laudo
         col1, col2 = st.columns(2)
@@ -399,7 +388,6 @@ def main():
             talhao_options = []
         talhao_select = st.selectbox(
             "Talhão", ["Selecione a Propriedade!"] + talhao_options, key="selected_talhao")
-        st.markdown('</div>', unsafe_allow_html=True)
 
         # Linha com Data Início e Data Fim
         col6, col7 = st.columns(2)
@@ -443,54 +431,57 @@ def main():
         row_count = st.session_state.df.shape[0]
         st.markdown(f"**Pedidos Encontrados: {row_count}**")
 
-    if st.session_state.get("df") is not None:
-        st.subheader("Pedidos Encontrados")
-        df_pedidos = agrupar_pedidos(st.session_state.df)
-        gb1 = GridOptionsBuilder.from_dataframe(df_pedidos)
-        gb1.configure_selection("single", use_checkbox=True)
-        grid_options1 = gb1.build()
-        grid_response1 = AgGrid(
-            df_pedidos,
-            gridOptions=grid_options1,
-            update_mode=GridUpdateMode.SELECTION_CHANGED,
-            theme="alpine-dark",
-            height=200,
-            fit_columns_on_grid_load=True
-        )
-        selected_pedido = grid_response1.get("selected_rows", [])
-        if isinstance(selected_pedido, pd.DataFrame):
-            selected_pedido = selected_pedido.to_dict(orient="records")
-        if selected_pedido and len(selected_pedido) > 0:
-            st.session_state.selected_pedido = selected_pedido[0]["pedido"]
-            st.markdown("### Pedido Selecionado:")
-            st.write(st.session_state.selected_pedido)
-        else:
-            st.info("Selecione um pedido no grid acima.")
-
-    if st.session_state.get("df") is not None and st.session_state.get("selected_pedido"):
-        st.subheader("Laudos do Pedido Selecionado")
-        df_laudos = laudos_por_pedido(
-            st.session_state.df, st.session_state.selected_pedido)
-        gb2 = GridOptionsBuilder.from_dataframe(df_laudos)
-        gb2.configure_selection("single", use_checkbox=True)
-        grid_options2 = gb2.build()
-        grid_response2 = AgGrid(
-            df_laudos,
-            gridOptions=grid_options2,
-            update_mode=GridUpdateMode.SELECTION_CHANGED,
-            theme="alpine-dark",
-            height=200,
-            fit_columns_on_grid_load=True
-        )
-        selected_laudo = grid_response2.get("selected_rows", [])
-        if isinstance(selected_laudo, pd.DataFrame):
-            selected_laudo = selected_laudo.to_dict(orient="records")
-        if selected_laudo and len(selected_laudo) > 0:
-            st.session_state.selected_laudo = selected_laudo[0]["idlaudo"]
-            st.markdown("### Laudo Selecionado:")
-            st.write(selected_laudo[0])
-        else:
-            st.info("Selecione um laudo no grid acima.")
+    # Encapsula os campos de pedidos dentro de um st.expander
+    with st.expander("Pedidos Encontrados"):
+        if st.session_state.get("df") is not None:
+            # st.subheader("Pedidos Encontrados")
+            df_pedidos = agrupar_pedidos(st.session_state.df)
+            gb1 = GridOptionsBuilder.from_dataframe(df_pedidos)
+            gb1.configure_selection("single", use_checkbox=True)
+            grid_options1 = gb1.build()
+            grid_response1 = AgGrid(
+                df_pedidos,
+                gridOptions=grid_options1,
+                update_mode=GridUpdateMode.SELECTION_CHANGED,
+                theme="alpine-dark",
+                height=200,
+                fit_columns_on_grid_load=True
+            )
+            selected_pedido = grid_response1.get("selected_rows", [])
+            if isinstance(selected_pedido, pd.DataFrame):
+                selected_pedido = selected_pedido.to_dict(orient="records")
+            if selected_pedido and len(selected_pedido) > 0:
+                st.session_state.selected_pedido = selected_pedido[0]["pedido"]
+                st.markdown("### Pedido Selecionado:")
+                st.write(st.session_state.selected_pedido)
+            else:
+                st.info("Selecione um pedido no grid acima.")
+# Encapsula os campos de pedidos dentro de um st.expander
+    with st.expander("Laudos do Pedido Selecionado"):
+        if st.session_state.get("df") is not None and st.session_state.get("selected_pedido"):
+            st.subheader("Laudos do Pedido Selecionado")
+            df_laudos = laudos_por_pedido(
+                st.session_state.df, st.session_state.selected_pedido)
+            gb2 = GridOptionsBuilder.from_dataframe(df_laudos)
+            gb2.configure_selection("single", use_checkbox=True)
+            grid_options2 = gb2.build()
+            grid_response2 = AgGrid(
+                df_laudos,
+                gridOptions=grid_options2,
+                update_mode=GridUpdateMode.SELECTION_CHANGED,
+                theme="alpine-dark",
+                height=200,
+                fit_columns_on_grid_load=True
+            )
+            selected_laudo = grid_response2.get("selected_rows", [])
+            if isinstance(selected_laudo, pd.DataFrame):
+                selected_laudo = selected_laudo.to_dict(orient="records")
+            if selected_laudo and len(selected_laudo) > 0:
+                st.session_state.selected_laudo = selected_laudo[0]["idlaudo"]
+                st.markdown("### Laudo Selecionado:")
+                st.write(selected_laudo[0])
+            else:
+                st.info("Selecione um laudo no grid acima.")
 
     if st.button("Gerar PDF"):
         if not st.session_state.get("selected_laudo"):
