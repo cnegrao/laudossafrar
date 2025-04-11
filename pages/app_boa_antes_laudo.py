@@ -351,7 +351,7 @@ def main():
         st.session_state.selected_laudo = None
 
     # Filtros de Pesquisa - Todos os campos são exibidos desde o início
-    with st.expander("Filtros de Pesquisa"):
+    with st.expander("Filtros de Pesquisa", expanded=True):
         with st.container():
             # Linha 1: Unidade e Tipo de Laudo
             col1, col2 = st.columns(2)
@@ -438,7 +438,7 @@ def main():
         st.markdown(f"**Pedidos Encontrados: {row_count}**")
 
     # Exibição dos pedidos encontrados
-    with st.expander("Pedidos Encontrados"):
+    with st.expander("Pedidos Encontrados", expanded=True):
         if st.session_state.get("df") is not None:
             df_pedidos = agrupar_pedidos(st.session_state.df)
             gb1 = GridOptionsBuilder.from_dataframe(df_pedidos)
@@ -462,7 +462,7 @@ def main():
             else:
                 st.info("Selecione um pedido no grid acima.")
 
-    with st.expander("Laudos do Pedido Selecionado"):
+    with st.expander("Laudos do Pedido Selecionado", expanded=True):
         if st.session_state.get("df") is not None and st.session_state.get("selected_pedido"):
             st.subheader("Laudos do Pedido Selecionado")
             df_laudos = laudos_por_pedido(
