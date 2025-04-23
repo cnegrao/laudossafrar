@@ -167,23 +167,21 @@ def obter_talhoes_por_propriedade(tabela, propriedade):
 # ===============================
 
 
-def draw_header_table(c, laudo_record, width, start_y):
-    row_data = [
+def draw_header_table(c, rec, width, y_start):
+    data = [
         ["Solicitante:", "Proprietário:", "Propriedade:"],
-        [laudo_record.get("solicitante", ""), laudo_record.get(
-            "proprietario", "").strip(), laudo_record.get("propriedade", "")],
+        [rec["solicitante"], rec["proprietario"], rec["propriedade"]],
         ["Laudo:", "", ""],
-        [laudo_record.get("descricao", ""), "", ""],
-        ["Cultura:", "Cidade/UF:", "Matricula:"],
-        [laudo_record.get("nomacultura", ""), laudo_record.get(
-            "municipio", ""), laudo_record.get("numero", "")],
+        [rec["descricao"], "", ""],
+        ["Cultura:", "Cidade/UF:", "Matrícula:"],
+        [rec["nomacultura"], rec["municipio"], rec["numero"]],
         ["Nº Laudo:", "Nº Pedido:", ""],
-        [laudo_record.get("idlaudo", ""), laudo_record.get("pedido", ""), ""],
+        [rec["idlaudo"], rec["pedido"], ""],
         ["Data Entrada:", "Data Emissão:", ""],
-        [laudo_record.get("entrada", ""), laudo_record.get("data", ""), ""]
+        [rec["entrada"], rec["data"], ""]
     ]
-    table = Table(row_data, colWidths=[(width-80)/3]*3)
-    style = TableStyle([
+    tbl = Table(data, colWidths=[(width-80)/3]*3)
+    tbl.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.white),
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('BACKGROUND', (0, 4), (-1, 4), colors.grey),
@@ -194,90 +192,96 @@ def draw_header_table(c, laudo_record, width, start_y):
         ('FONTNAME', (0, 6), (-1, 6), 'Helvetica-Bold'),
         ('FONTNAME', (0, 8), (-1, 8), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT')
-    ])
-    style.add('SPAN', (0, 2), (-1, 2))
-    style.add('SPAN', (0, 3), (-1, 3))
-    table.setStyle(style)
-    t_w, t_h = table.wrap(width-80, start_y)
-    table.drawOn(c, 40, start_y-t_h)
-    return start_y - t_h - 20
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('SPAN', (0, 2), (-1, 2)),
+        ('SPAN', (0, 3), (-1, 3)),
+    ]))
+    w_tbl, h_tbl = tbl.wrap(width-80, y_start)
+    tbl.drawOn(c, 40, y_start - h_tbl)
+    return y_start - h_tbl - 15
 
 
-def gerar_pdf(laudo_record):
+def gerar_pdf(rec):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    logo_path = os.path.join(os.path.dirname(__file__), "logo_safrar.jpeg")
+    w, h = A4
+
+    # Cabeçalho com logo e endereço
+    logo = os.path.join(os.path.dirname(__file__), "logo_safrar.jpeg")
     try:
-        c.drawImage(logo_path, 40, height-100, width=100,
+        c.drawImage(logo, 40, h-90, width=100,
                     preserveAspectRatio=True, mask='auto')
-    except Exception as e:
-        st.write("Erro ao carregar logo:", e)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(width/2, height-50,
-                        "Confiança e Credibilidade ao Seu Alcance")
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(width/2, height-65,
-                        "AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG")
-    c.drawCentredString(width/2, height-80, "38407-710")
+    except:
+        pass
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(w/2, h-50, "Confiança e Credibilidade ao Seu Alcance")
+    c.setFont("Helvetica", 9)
     c.drawCentredString(
-        width/2, height-95, "Fone: (34)3211-3060  |  Email: atendimento.uberlândia@safrar.agr.br")
-    c.line(40, height-110, width-40, height-110)
-    start_y = height-130
-    start_y = draw_header_table(c, laudo_record, width, start_y)
-    amostra_headers = list(mapping_amostras.keys())
-    amostra_data = [amostra_headers]
-    for amostra in laudo_record.get("amostras", []):
-        row = [amostra.get(mapping_amostras[header], "")
-               for header in amostra_headers]
-        amostra_data.append(row)
-    if len(amostra_data) > 1:
-        t_amostra = Table(amostra_data, colWidths=[70, 50, 100, 80])
-        t_amostra.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 1, colors.white),
+        w/2, h-65, "AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG")
+    c.drawCentredString(
+        w/2, h-80, "38407-710    Fone: (34)3211-3060    atendimento.uberlândia@safrar.agr.br")
+    c.line(40, h-95, w-40, h-95)
+
+    y = h - 110
+
+    # Tabela de cabeçalho
+    y = draw_header_table(c, rec, w, y)
+
+    # Amostras
+    headers = list(mapping_amostras.keys())
+    rows = [headers] + [
+        [am[mapping_amostras[h]] for h in headers]
+        for am in rec["amostras"]
+    ]
+    if len(rows) > 1:
+        tbl = Table(rows, colWidths=[(w-80)/len(headers)]*len(headers))
+        tbl.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.white),
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER')
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ]))
-        t_w, t_h = t_amostra.wrap(width-80, start_y)
-        if start_y-t_h < 50:
+        tw, th = tbl.wrap(w-80, y)
+        if y - th < 60:
             c.showPage()
-            start_y = height-50
-        t_amostra.drawOn(c, 40, start_y-t_h)
-        start_y -= t_h+20
-    resultados = laudo_record.get("resultados", {})
-    processed_resultados = {}
-    for pdf_field, db_field in mapping_resultados.items():
-        value = resultados.get(db_field, "")
-        if str(value) in ["-1", "-1.0"]:
-            value = ""
-        processed_resultados[db_field] = value
-    if processed_resultados:
-        resultados_data = [["Parâmetro", "Valor"]]
-        for pdf_field, db_field in mapping_resultados.items():
-            resultados_data.append(
-                [pdf_field, processed_resultados.get(db_field, "")])
-        t_result = Table(resultados_data, colWidths=[250, 100])
-        t_result.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 1, colors.white),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('ALIGN', (1, 1), (-1, -1), 'CENTER')
-        ]))
-        t_w, t_h = t_result.wrap(width-80, start_y)
-        if start_y-t_h < 50:
-            c.showPage()
-            start_y = height-50
-        t_result.drawOn(c, 40, start_y-t_h)
-        start_y -= t_h+20
+            y = h - 50
+        tbl.drawOn(c, 40, y - th)
+        y -= th + 20
+
+    # Resultados
+    data = [["Parâmetro", "Valor"]] + [
+        [label, rec["resultados"].get(field, "")]
+        for label, field in mapping_resultados.items()
+    ]
+    tbl2 = Table(data, colWidths=[(w-80)*0.6, (w-80)*0.4])
+    tbl2.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+    ]))
+    tw2, th2 = tbl2.wrap(w-80, y)
+    if y - th2 < 60:
+        c.showPage()
+        y = h - 50
+    tbl2.drawOn(c, 40, y - th2)
+    y -= th2 + 30
+
+    # Rodapé de notas
+    c.line(40, 50, w-40, 50)
+    c.setFont("Helvetica", 8)
+    c.drawString(
+        40, 40, "- O laboratório não se responsabiliza pela interpretação dos resultados.")
+    c.drawString(40, 30, "- Após 30 dias, as amostras serão descartadas.")
+
     c.showPage()
     c.save()
-    pdf_bytes = buffer.getvalue()
+
+    pdf = buffer.getvalue()
     buffer.close()
-    return pdf_bytes
+    return pdf
 
 
 def consultar_laudos(tabela, data_inicio, data_fim):
