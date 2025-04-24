@@ -115,6 +115,48 @@ mapping_resultados = {
     "H cmolc": "h_cmolc"
 }
 
+
+def draw_determinacao_unidade(c, det_unit: str, start_y: float) -> float:
+    """
+    Desenha a linha de Determinação Unidade (usando det_unidade)
+    e retorna o y para continuar abaixo.
+    """
+    if det_unit:
+        c.setFont("Helvetica", 9)
+        c.drawString(40, start_y, f"Determinação Unidade {det_unit}")
+        return start_y - 15
+    return start_y
+
+
+def draw_resultados(c, processed_resultados: dict, width: float, start_y: float) -> float:
+    """
+    Desenha a tabela de parâmetros/valores (menos Determinação Unidade)
+    e retorna o y para continuar abaixo.
+    """
+    resultados_data = [["Parâmetro", "Valor"]]
+    for pdf_field, db_field in mapping_resultados.items():
+        if pdf_field == "Determinação Unidade":
+            continue
+        valor = processed_resultados.get(db_field, "")
+        resultados_data.append([pdf_field, valor])
+
+    t = Table(resultados_data, colWidths=[250, 100])
+    t.setStyle(TableStyle([
+        ('GRID',       (0, 0), (-1, -1), 1, colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0, 0), (-1, -1), 8),
+        ('ALIGN',      (1, 1), (-1, -1), 'CENTER'),
+    ]))
+
+    t_w, t_h = t.wrap(width-80, start_y)
+    if start_y - t_h < 50:
+        c.showPage()
+        start_y = A4[1] - 50
+
+    t.drawOn(c, 40, start_y - t_h)
+    return start_y - t_h - 20
+
 # ===============================
 # Funções para obter dados dos filtros
 # ===============================
@@ -204,62 +246,72 @@ def gerar_pdf(rec):
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
-    # Logo e cabeçalho fixo
-    logo = os.path.join(os.path.dirname(__file__), 'logo_safrar.jpeg')
+
+    # --- Logo e cabeçalho fixo ---
+    logo_path = os.path.join(os.path.dirname(__file__), "logo_safrar.jpeg")
     try:
-        c.drawImage(logo, 30, h-80, width=80, height=30)
+        c.drawImage(logo_path, 30, h - 80, width=80, height=30, mask='auto')
     except Exception:
         pass
-    c.setFont('Helvetica-Bold', 14)
-    c.drawString(120, h-50, 'Confiança e Credibilidade ao Seu Alcance')
-    c.setFont('Helvetica', 9)
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(120, h - 50, "Confiança e Credibilidade ao Seu Alcance")
+    c.setFont("Helvetica", 9)
     c.drawString(
-        30, h-95, 'AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG | Fone: (34)3211-3060')
+        30, h - 95,
+        "AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG    Fone: (34)3211-3060"
+    )
     y = h - 120
+
+    # --- Cabeçalho com dados do laudo ---
     y = draw_header_table(c, rec, w, y)
 
-    # Amostras
+    # --- Tabela de Amostras ---
     amos_h = list(mapping_amostras.keys())
-    rows = [amos_h]
-    for a in rec.get('amostras', []):
-        rows.append([a.get(mapping_amostras[k], '') for k in amos_h])
-    if len(rows) > 1:
-        tbl = Table(rows, colWidths=[60, 50, 100, 100])
-        tbl.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.white),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER')
+    amos_rows = [amos_h]
+    for a in rec.get("amostras", []):
+        amos_rows.append([a.get(mapping_amostras[k], "") for k in amos_h])
+
+    if len(amos_rows) > 1:
+        tbl_amos = Table(amos_rows, colWidths=[60, 50, 100, 100])
+        tbl_amos.setStyle(TableStyle([
+            ("GRID",      (0, 0), (-1, -1), 0.5, colors.black),
+            ("BACKGROUND", (0, 0), (-1, 0),  colors.grey),
+            ("FONTSIZE",  (0, 0), (-1, -1), 8),
+            ("ALIGN",     (0, 0), (-1, -1), "CENTER"),
         ]))
-        tw, th = tbl.wrap(w-60, y)
+        tw, th = tbl_amos.wrap(w - 60, y)
         if y - th < 50:
             c.showPage()
             y = h - 50
-        tbl.drawOn(c, 30, y - th)
+        tbl_amos.drawOn(c, 30, y - th)
         y -= th + 10
 
-    # Resultados: inclui número do laudo no cabeçalho
-    first_col = next(iter(mapping_resultados.keys()))
-    res_h = [first_col + f" {rec.get('idlaudo', '')}"]
-    res_rows = [res_h]
-    for label, field in mapping_resultados.items():
-        # pula a primeira etiqueta já usada
-        if label == first_col:
-            continue
-        res_rows.append([label, rec.get(field, '')])
-    tbl2 = Table(res_rows, colWidths=[200, 100])
-    tbl2.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.white),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('ALIGN', (1, 1), (-1, -1), 'CENTER')
+    # --- Tabela de Resultados (2 colunas: Parâmetro + Valor) ---
+    res_header = ["Determinação Unidade", "Valor"]
+    res_rows = [res_header]
+    # pulamos o primeiro mapeamento (que já virou o cabeçalho)
+    for label, field in list(mapping_resultados.items())[1:]:
+        valor = rec.get(field, "")
+        if str(valor) in ["-1", "-1.0"]:
+            valor = ""
+        res_rows.append([label, valor])
+
+    tbl_res = Table(res_rows, colWidths=[300, 100])
+    tbl_res.setStyle(TableStyle([
+        ("GRID",       (0, 0), (-1, -1), 0.5, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0),  colors.grey),
+        ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",   (0, 0), (-1, -1), 8),
+        ("ALIGN",      (1, 1), (-1, -1), "CENTER"),
     ]))
-    tw, th = tbl2.wrap(w-60, y)
+    tw, th = tbl_res.wrap(w - 60, y)
     if y - th < 50:
         c.showPage()
         y = h - 50
-    tbl2.drawOn(c, 30, y - th)
+    tbl_res.drawOn(c, 30, y - th)
 
+    # --- Finaliza ---
     c.showPage()
     c.save()
     return buf.getvalue()
