@@ -9,6 +9,10 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
+from reportlab.lib.colors import HexColor
+
+# Cor de cabeçalho (verde Safrar)
+HEADER_GREEN = HexColor('#367D22')
 
 # Injetar os CSS externos do AG Grid para o tema "alpine-dark"
 st.markdown(
@@ -210,113 +214,142 @@ def obter_talhoes_por_propriedade(tabela, propriedade):
 
 
 def draw_header_table(c, rec, width, y):
-    # Ajusta campos faltantes
-    cultura = rec.get('cultura', '')
+    """
+    Desenha o bloco de metadados (Solicitante, Proprietário, etc.)
+    usando HEADER_GREEN nos títulos.
+    Retorna o novo y após a tabela.
+    """
+    # Prepara os campos (tratando faltantes)
+    cultura = rec.get('nomacultura', '')
     municipio = rec.get('municipio', '')
     numero = rec.get('numero', '')
 
     data_fields = [
-        ['Solicitante:', 'Proprietário:', 'Propriedade:'],
+        ['Solicitante:',      'Proprietário:',    'Propriedade:'],
         [rec.get('solicitante', ''), rec.get(
             'proprietario', ''), rec.get('propriedade', '')],
-        ['Laudo:', '', ''],
-        [rec.get('descricao', ''), '', ''],
-        ['Cultura:', 'Cidade/UF:', 'Matrícula:'],
-        [cultura, municipio, numero],
-        ['Nº Laudo:', 'Nº Pedido:', ''],
+        ['Laudo:',            '',                 ''],
+        [rec.get('descricao', ''), '',                ''],
+        ['Cultura:',          'Cidade/UF:',       'Matrícula:'],
+        [cultura,             municipio,           numero],
+        ['Nº Laudo:',         'Nº Pedido:',       ''],
         [rec.get('idlaudo', ''), rec.get('pedido', ''), ''],
-        ['Data Entrada:', 'Data Emissão:', ''],
-        [rec.get('entrada', ''), rec.get('data', ''), '']
+        ['Data Entrada:',     'Data Emissão:',    ''],
+        [rec.get('entrada', ''), rec.get('data', ''),  '']
     ]
+
     table = Table(data_fields, colWidths=[(width-60)/3]*3)
     style = TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.white),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT')
+        ('GRID',       (0, 0), (-1, -1), 0.5, colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), HEADER_GREEN),
+        ('BACKGROUND', (0, 4), (-1, 4), HEADER_GREEN),
+        ('BACKGROUND', (0, 6), (-1, 6), HEADER_GREEN),
+        ('BACKGROUND', (0, 8), (-1, 8), HEADER_GREEN),
+        ('FONTNAME',   (0,   0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME',   (0,   4), (-1, 4), 'Helvetica-Bold'),
+        ('FONTNAME',   (0,   6), (-1, 6), 'Helvetica-Bold'),
+        ('FONTNAME',   (0,   8), (-1, 8), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0,   0), (-1, -1), 8),
+        ('ALIGN',      (0,   0), (-1, -1), 'LEFT'),
     ])
     table.setStyle(style)
+
     tw, th = table.wrap(width-60, y)
     table.drawOn(c, 30, y-th)
-    return y-th-10
+    return y - th - 10
 
 
 def gerar_pdf(rec):
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    from reportlab.platypus import Table, TableStyle
+    from reportlab.lib import colors
+    import os
+
+    # Cor do cabeçalho das tabelas
+    HEADER_GREEN = colors.HexColor('#367D22')
+
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
 
-    # --- Logo e cabeçalho fixo ---
-    logo_path = os.path.join(os.path.dirname(__file__), "logo_safrar.jpeg")
+    # --- Logo e texto fixo ---
+    logo = os.path.join(os.path.dirname(__file__), 'logo_safrar.jpeg')
     try:
-        c.drawImage(logo_path, 30, h - 80, width=80, height=30, mask='auto')
+        c.drawImage(logo, 30, h-80, width=80, height=30)
     except Exception:
         pass
-
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(120, h - 50, "Confiança e Credibilidade ao Seu Alcance")
-    c.setFont("Helvetica", 9)
+    c.setFont('Helvetica-Bold', 14)
+    c.drawString(120, h-50, 'Confiança e Credibilidade ao Seu Alcance')
+    c.setFont('Helvetica', 9)
     c.drawString(
-        30, h - 95,
-        "AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG    Fone: (34)3211-3060"
+        30, h-95,
+        'AVENIDA ATLANTA, 558 - NOVO MUNDO - Uberlândia-MG | Fone: (34)3211-3060'
     )
     y = h - 120
 
-    # --- Cabeçalho com dados do laudo ---
+    # --- Cabeçalho de campos fixos ---
     y = draw_header_table(c, rec, w, y)
 
     # --- Tabela de Amostras ---
     amos_h = list(mapping_amostras.keys())
     amos_rows = [amos_h]
-    for a in rec.get("amostras", []):
-        amos_rows.append([a.get(mapping_amostras[k], "") for k in amos_h])
-
+    for a in rec.get('amostras', []):
+        amos_rows.append([a.get(mapping_amostras[k], '') for k in amos_h])
     if len(amos_rows) > 1:
-        tbl_amos = Table(amos_rows, colWidths=[60, 50, 100, 100])
-        tbl_amos.setStyle(TableStyle([
-            ("GRID",      (0, 0), (-1, -1), 0.5, colors.black),
-            ("BACKGROUND", (0, 0), (-1, 0),  colors.grey),
-            ("FONTSIZE",  (0, 0), (-1, -1), 8),
-            ("ALIGN",     (0, 0), (-1, -1), "CENTER"),
+        tbl1 = Table(amos_rows, colWidths=[
+                     (w-60)*0.15, (w-60)*0.15, (w-60)*0.35, (w-60)*0.35])
+        tbl1.setStyle(TableStyle([
+            ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), HEADER_GREEN),
+            ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE',   (0, 0), (-1, -1), 8),
+            ('ALIGN',      (0, 0), (-1, -1), 'CENTER'),
         ]))
-        tw, th = tbl_amos.wrap(w - 60, y)
-        if y - th < 50:
+        tw1, th1 = tbl1.wrap(w-60, y)
+        if y - th1 < 50:
             c.showPage()
             y = h - 50
-        tbl_amos.drawOn(c, 30, y - th)
-        y -= th + 10
+        tbl1.drawOn(c, 30, y - th1)
+        y -= th1 + 10
 
-    # --- Tabela de Resultados (2 colunas: Parâmetro + Valor) ---
-    res_header = ["Determinação Unidade", "Valor"]
-    res_rows = [res_header]
-    # pulamos o primeiro mapeamento (que já virou o cabeçalho)
-    for label, field in list(mapping_resultados.items())[1:]:
-        valor = rec.get(field, "")
-        if str(valor) in ["-1", "-1.0"]:
-            valor = ""
-        res_rows.append([label, valor])
+    # --- Tabela de Resultados Dinâmica ---
+    # Identificadores das amostras úteis para cabeçalho
+    sample_ids = [a.get('amostra', '') for a in rec.get('amostras', [])]
+    # Cabeçalho: Parâmetro + cada ID de amostra
+    res_rows = [['Parâmetro'] + sample_ids]
+    # Linhas: para cada parâmetro, valor por amostra
+    for label, field in mapping_resultados.items():
+        row = [label]
+        for a in rec.get('amostras', []):
+            val = a.get(field, '')
+            if str(val) in ['-1', '-1.0']:
+                val = ''
+            row.append(val)
+        res_rows.append(row)
 
-    tbl_res = Table(res_rows, colWidths=[300, 100])
-    tbl_res.setStyle(TableStyle([
-        ("GRID",       (0, 0), (-1, -1), 0.5, colors.black),
-        ("BACKGROUND", (0, 0), (-1, 0),  colors.grey),
-        ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE",   (0, 0), (-1, -1), 8),
-        ("ALIGN",      (1, 1), (-1, -1), "CENTER"),
+    # Larguras: 40% para label, 60% dividido entre amostras
+    n = max(1, len(sample_ids))
+    col_widths = [(w-60)*0.4] + [(w-60)*0.6/n] * n
+
+    tbl2 = Table(res_rows, colWidths=col_widths)
+    tbl2.setStyle(TableStyle([
+        ('GRID',       (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), HEADER_GREEN),
+        ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0, 0), (-1, -1), 8),
+        ('ALIGN',      (1, 1), (-1, -1), 'CENTER'),
     ]))
-    tw, th = tbl_res.wrap(w - 60, y)
-    if y - th < 50:
+    tw2, th2 = tbl2.wrap(w-60, y)
+    if y - th2 < 50:
         c.showPage()
         y = h - 50
-    tbl_res.drawOn(c, 30, y - th)
+    tbl2.drawOn(c, 30, y - th2)
 
-    # --- Finaliza ---
     c.showPage()
     c.save()
     return buf.getvalue()
-
-# restante inalterado...
 
 
 def consultar_laudos(tabela, data_inicio, data_fim):
